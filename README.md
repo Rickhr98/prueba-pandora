@@ -102,4 +102,3 @@ Si se ejecuta en modo de comparación, también se mostrará una tabla con los t
 ## Manejo de Errores
 
 El programa maneja errores comunes como problemas de red o de la API, e intenta reintentar las solicitudes cuando sea necesario. Los errores también se registran en el archivo `app.log`.
-
