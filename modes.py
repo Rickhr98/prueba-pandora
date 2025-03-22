@@ -4,6 +4,8 @@ import time
 import threading
 import multiprocessing
 import logging
+import requests
+from functools import partial
 
 # Configurar logging
 logging.basicConfig(filename="app.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -44,28 +46,36 @@ def run_multithreaded(photo_limit):
 
     photos = fetch_photos(photo_limit)
     logging.info(f"MODO MULTIHILO: {len(photos)} fotos")
+    
+    # Obtener solo los IDs de álbumes únicos para evitar solicitudes duplicadas
+    unique_album_ids = list(set(photo["albumId"] for photo in photos))
     album_data = {}
+    
+    # Crear un semáforo para limitar el número máximo de hilos concurrentes
+    max_threads = min(50, len(unique_album_ids))
+    thread_limiter = threading.Semaphore(max_threads)
 
-    # Función para obtener álbum en un hilo y almacenarlo en un diccionario
-    def fetch_album_thread(photo):
-        album = fetch_album(photo["albumId"])
-        album_data[photo["id"]] = album
-
+    # Función para obtener álbum en un hilo, con limitación de concurrencia
+    def fetch_album_thread(album_id):
+        with thread_limiter:
+            album = fetch_album(album_id)
+            album_data[album_id] = album
+            
     threads = []
-
-    # Crear un hilo por cada foto
-    for photo in photos:
-        thread = threading.Thread(target=fetch_album_thread, args=(photo,))
+    
+    # Crear un hilo por cada álbum único
+    for album_id in unique_album_ids:
+        thread = threading.Thread(target=fetch_album_thread, args=(album_id,))
         threads.append(thread)
         thread.start()
-
+        
     # Esperar a que todos los hilos terminen
     for thread in threads:
         thread.join()
 
     # Mostrar resultados
     for photo in photos:
-        album = album_data.get(photo["id"], {"id": "N/A", "title": "Error al obtener álbum"})
+        album = album_data.get(photo["albumId"], {"id": "N/A", "title": "Error al obtener álbum"})
         print(f"Foto ID: {photo['id']}")
         print(f"Título: {photo['title']}")
         print(f"URL: {photo['url']}")
@@ -76,12 +86,8 @@ def run_multithreaded(photo_limit):
 
     end_time = time.time()
     duration = end_time - start_time
-    if duration < 0:
-        print(f"Tiempo total de ejecución: 0 segundos")
-        logging.info(f"Tiempo total de ejecución: 0 segundos")
-    else:
-        print(f"Tiempo total de ejecución: {duration:.3f} segundos")
-        logging.info(f"Tiempo total de ejecución: {duration:.3f} segundos")
+    print(f"Tiempo total de ejecución: {duration:.3f} segundos")
+    logging.info(f"Tiempo total de ejecución: {duration:.3f} segundos")
 
 def run_multiprocessing(photo_limit):
     """Ejecuta la consulta de fotos y álbumes utilizando múltiples procesos."""
@@ -89,13 +95,53 @@ def run_multiprocessing(photo_limit):
 
     photos = fetch_photos(photo_limit)
     logging.info(f"MODO MULTIPROCESOS: {len(photos)} fotos")
-
-    # Usamos un Pool de procesos para obtener los álbumes en paralelo
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-        album_results = pool.map(fetch_album, [photo["albumId"] for photo in photos])
-
+    
+    # Obtener lista única de IDs de álbumes para evitar solicitudes duplicadas
+    unique_album_ids = list(set(photo["albumId"] for photo in photos))
+    
+    # Limitar el número de procesos a algo razonable
+    num_processes = min(8, multiprocessing.cpu_count(), len(unique_album_ids))
+    
+    # Dividir la lista de IDs de álbumes en lotes para cada proceso
+    chunks = [unique_album_ids[i::num_processes] for i in range(num_processes)]
+    
+    # Función para un proceso, que procesa un lote de álbumes
+    def process_album_batch(album_ids):
+        session = requests.Session()  # Usar una sesión persistente
+        results = {}
+        for album_id in album_ids:
+            album = fetch_album(album_id, session=session)
+            results[album_id] = album
+        return results
+    
+    # Crear y ejecutar los procesos
+    with multiprocessing.Manager() as manager:
+        # Usar un diccionario compartido
+        shared_results = manager.dict()
+        processes = []
+        
+        for chunk in chunks:
+            if not chunk:  # Saltar chunks vacíos
+                continue
+                
+            # Crea un proceso para procesar un lote de álbumes, donde le paso los IDs y el diccionario compartido
+            p = multiprocessing.Process(
+                target=lambda ids, results: results.update(process_album_batch(ids)),
+                args=(chunk, shared_results)
+            )
+            processes.append(p)
+            p.start()
+        
+        # Esperar a que todos los procesos terminen
+        for p in processes:
+            p.join()
+        
+        # Convertir el resultado en un diccionario normal
+        album_data = dict(shared_results)
+    
     # Mostrar resultados
-    for photo, album in zip(photos, album_results):
+    for photo in photos:
+        album = album_data.get(photo["albumId"], {"id": "N/A", "title": "Error al obtener álbum"})
         print(f"Foto ID: {photo['id']}")
         print(f"Título: {photo['title']}")
         print(f"URL: {photo['url']}")
@@ -106,9 +152,5 @@ def run_multiprocessing(photo_limit):
 
     end_time = time.time()
     duration = end_time - start_time
-    if duration < 0:
-        print(f"Tiempo total de ejecución: 0 segundos")
-        logging.info(f"Tiempo total de ejecución: 0 segundos")
-    else:
-        print(f"Tiempo total de ejecución: {duration:.3f} segundos")
-        logging.info(f"Tiempo total de ejecución: {duration:.3f} segundos")
+    print(f"Tiempo total de ejecución: {duration:.3f} segundos")
+    logging.info(f"Tiempo total de ejecución: {duration:.3f} segundos")
