@@ -1,9 +1,15 @@
 # Resumen de la experiencia
 ## Lógica de evaluación de problema, explica tu solución y cómo llegaste a ella
-    - Analicé los requerimientos principales de la tarea, entendiendo las principales y las de menor peso.
-    - 
+- Analicé los requerimientos principales de la tarea, entendiendo las principales y las de menor peso.
+
+- Definí lo que necesitaba para resolver el problema: estructura de proyecto adecuada y limpia, fuentes de información y los posibles formatos de respuesta, pruebas a realizar, etc.
+
+- Desarrollé desde lo mas sencillo para lograr tener una base de ejecucion del script hasta lo mas complejo resolviendo temas de optimización.
+
+- Realicé investigación sobre optimizacion para los modos de multiprocesos y multihilos, me ayude de documentación tecnica, videos, herramientas de IA, etc; hasta lograr una optimización aceptable en tiempos de respuesta.
+
 ## Con qué problemas te has encontrado y cómo los has resuelto.
-Al principio obtuve el script con las funcionalidades principales para cierta cantidad de datos; al momento de incrementar la data a buscar me encontré con problemas de optimización y tiempos de respuestas, entonces tuve que analizar lo que habia ya realizado y evaluar que partes podrian estar afectando la obtencion de respuesta; una de ellas era la redundancia al momento de buscar los albums por lo cual se utilizo un diccionario de albums id para no duplicar las busquedas de albums y disminuir las peticiones al servicio.
+Al principio desarrollé el script con las funcionalidades principales para cierta cantidad de datos; al momento de incrementar la data a buscar me encontré con problemas de optimización y tiempos de respuestas, entonces tuve que analizar lo que habia realizado y evaluar dentro del flujo que partes podrian estar afectando la obtencion de respuesta; una de ellas era la redundancia al momento de buscar los albums por lo cual se utilizo un diccionario de albums id para no duplicar las busquedas de albums y disminuir las peticiones al servicio.
 
 ## Cuándo y por qué se debería usar secuencial, multihilo o multiproceso.
 
