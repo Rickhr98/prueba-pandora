@@ -32,16 +32,22 @@ def fetch_photos(limit=None):
 """
 Funciones para obtener un álbum de la API JSONPlaceholder por su ID.
 """
-def fetch_album(album_id):
+def fetch_album(album_id, session=None, retries=3, delay=1):
     """Obtiene el álbum correspondiente."""
     album = {}
-    try:
-        response = requests.get(ALBUM_ID_URL.format(album_id))
-        if response.status_code == 200:
-            album = response.json()
-        else:
-            logging.warning(f"Error al obtener el álbum {album_id}: {response.status_code}")
-    except requests.RequestException as e:
+    session = session or requests.Session()
+    for attempt in range(retries):
+        try:
+            response = session.get(ALBUM_ID_URL.format(album_id))
+            if response.status_code == 200:
+                album = response.json()
+                break
+            else:
+                logging.warning(f"Error al obtener el álbum {album_id}: {response.status_code}")
+        except requests.RequestException as e:
+            if attempt < retries - 1:
+                time.sleep(delay * (2 ** attempt))
+                continue
             logging.warning(f"Error al obtener el álbum {album_id}: {e}")
 
     return album
